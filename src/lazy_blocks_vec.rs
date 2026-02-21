@@ -8,6 +8,7 @@ impl<T, const ELEMENTS_PER_BLOCK: usize> LazyBlocksVec<T, ELEMENTS_PER_BLOCK> {
     }
 }
 
+// todo: allow non-default construction
 impl<T: Clone + Default, const ELEMENTS_PER_BLOCK: usize> LazyBlocksVec<T, ELEMENTS_PER_BLOCK> {
     pub fn get_or_create_default(&mut self, id: &usize) -> T {
         let block_id = id / ELEMENTS_PER_BLOCK;
