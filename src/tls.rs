@@ -20,7 +20,7 @@ pub struct EnumerableTls<
     TlsProvider: GlobalProvider<TlsRegistry<T>>,
 > {
     tls_id: RecycledTLSId<IdProvider>,
-    all_tls: Arc<Mutex<Vec<Weak<T>>>>,
+    all_tls: Mutex<Vec<Weak<T>>>,
     _marker: PhantomData<TlsProvider>,
 }
 
@@ -33,7 +33,7 @@ impl<
     pub fn new() -> Self {
         Self {
             tls_id: RecycledTLSId::allocate(),
-            all_tls: Arc::new(Mutex::new(Vec::with_capacity(64))),
+            all_tls: Mutex::new(Vec::with_capacity(64)),
             _marker: PhantomData,
         }
     }
