@@ -59,6 +59,8 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
+    use static_assertions::assert_impl_all;
+
     use crate::{
         free_ids::FreeIds,
         global::GlobalProvider,
@@ -90,9 +92,13 @@ mod tests {
         }
     }
 
+    type MyEnumerableTls = EnumerableTls<Data, FreeIdsProvider, TlsProvider>;
+
+    assert_impl_all!(MyEnumerableTls: Send, Sync);
+
     #[test]
     fn test() {
-        let tls = EnumerableTls::<Data, FreeIdsProvider, TlsProvider>::new();
+        let tls = MyEnumerableTls::new();
         let _data = tls.get_or_create();
     }
 }
