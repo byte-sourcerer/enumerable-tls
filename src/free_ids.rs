@@ -35,6 +35,12 @@ pub struct FreeIds {
     id: TLSId,
 }
 
+impl Default for FreeIds {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FreeIds {
     pub const fn new() -> Self {
         Self {

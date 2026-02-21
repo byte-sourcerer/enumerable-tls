@@ -28,6 +28,16 @@ impl<
     T: Default + 'static,
     IdProvider: GlobalProvider<Mutex<FreeIds>>,
     TlsProvider: GlobalProvider<TlsRegistry<T>>,
+> Default for EnumerableTls<T, IdProvider, TlsProvider> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<
+    T: Default + 'static,
+    IdProvider: GlobalProvider<Mutex<FreeIds>>,
+    TlsProvider: GlobalProvider<TlsRegistry<T>>,
 > EnumerableTls<T, IdProvider, TlsProvider>
 {
     pub fn new() -> Self {

@@ -2,6 +2,12 @@ pub struct LazyBlocksVec<T, const ELEMENTS_PER_BLOCK: usize> {
     blocks: Vec<Option<Box<LazyBlock<T, ELEMENTS_PER_BLOCK>>>>,
 }
 
+impl<T, const ELEMENTS_PER_BLOCK: usize> Default for LazyBlocksVec<T, ELEMENTS_PER_BLOCK> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T, const ELEMENTS_PER_BLOCK: usize> LazyBlocksVec<T, ELEMENTS_PER_BLOCK> {
     pub const fn new() -> Self {
         Self { blocks: Vec::new() }
