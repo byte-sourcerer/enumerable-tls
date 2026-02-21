@@ -81,7 +81,7 @@ macro_rules! declare_enumerable_tls {
     ($TlsType:ident, $Data:ty) => {
         paste::paste! {
             thread_local! {
-                static [<$TlsType:snake:upper TLS_BLOCKS>]: ::std::cell::RefCell<
+                static [<$TlsType:snake:upper _ TLS_BLOCKS>]: ::std::cell::RefCell<
                     $crate::TlsVec<$Data>
                 > = const { ::std::cell::RefCell::new($crate::LazyBlocksVec::new()) };
             }
@@ -90,18 +90,18 @@ macro_rules! declare_enumerable_tls {
 
             impl $crate::GlobalProvider<$crate::TlsRegistry<$Data>> for [<$TlsType TlsProvider>] {
                 fn global() -> &'static $crate::TlsRegistry<$Data> {
-                    &[<$TlsType:snake:upper TLS_BLOCKS>]
+                    &[<$TlsType:snake:upper _ TLS_BLOCKS>]
                 }
             }
 
-            static [<$TlsType:snake:upper FREE_IDS>]: ::std::sync::Mutex<$crate::free_ids::FreeIds> =
+            static [<$TlsType:snake:upper _ FREE_IDS>]: ::std::sync::Mutex<$crate::free_ids::FreeIds> =
                 ::std::sync::Mutex::new($crate::free_ids::FreeIds::new());
 
             struct [<$TlsType FreeIdsProvider>];
 
             impl $crate::GlobalProvider<::std::sync::Mutex<$crate::FreeIds>> for [<$TlsType FreeIdsProvider>] {
                 fn global() -> &'static ::std::sync::Mutex<$crate::free_ids::FreeIds> {
-                    &[<$TlsType:snake:upper FREE_IDS>]
+                    &[<$TlsType:snake:upper _ FREE_IDS>]
                 }
             }
 
