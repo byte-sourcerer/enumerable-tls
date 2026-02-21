@@ -11,8 +11,9 @@ use crate::{
     lazy_blocks_vec::LazyBlocksVec,
 };
 
-// todo: allow T = Arc<XXX>
-type TlsRegistry<T> = LocalKey<RefCell<LazyBlocksVec<Arc<T>, 32>>>;
+pub type TlsVec<T> = LazyBlocksVec<Arc<T>, 32>;
+
+pub type TlsRegistry<T> = LocalKey<RefCell<TlsVec<T>>>;
 
 pub struct EnumerableTls<
     T: Default + 'static,
@@ -28,7 +29,8 @@ impl<
     T: Default + 'static,
     IdProvider: GlobalProvider<Mutex<FreeIds>>,
     TlsProvider: GlobalProvider<TlsRegistry<T>>,
-> Default for EnumerableTls<T, IdProvider, TlsProvider> {
+> Default for EnumerableTls<T, IdProvider, TlsProvider>
+{
     fn default() -> Self {
         Self::new()
     }
@@ -74,47 +76,44 @@ impl<
     }
 }
 
+#[macro_export]
+macro_rules! declare_enumerable_tls {
+    ($TlsType:ident, $Data:ty) => {
+        paste::paste! {
+            thread_local! {
+                static [<$TlsType:snake:upper TLS_BLOCKS>]: ::std::cell::RefCell<
+                    $crate::TlsVec<$Data>
+                > = const { ::std::cell::RefCell::new($crate::LazyBlocksVec::new()) };
+            }
+
+            struct [<$TlsType TlsProvider>];
+
+            impl $crate::GlobalProvider<$crate::TlsRegistry<$Data>> for [<$TlsType TlsProvider>] {
+                fn global() -> &'static $crate::TlsRegistry<$Data> {
+                    &[<$TlsType:snake:upper TLS_BLOCKS>]
+                }
+            }
+
+            static [<$TlsType:snake:upper FREE_IDS>]: ::std::sync::Mutex<$crate::free_ids::FreeIds> =
+                ::std::sync::Mutex::new($crate::free_ids::FreeIds::new());
+
+            struct [<$TlsType FreeIdsProvider>];
+
+            impl $crate::GlobalProvider<::std::sync::Mutex<$crate::FreeIds>> for [<$TlsType FreeIdsProvider>] {
+                fn global() -> &'static ::std::sync::Mutex<$crate::free_ids::FreeIds> {
+                    &[<$TlsType:snake:upper FREE_IDS>]
+                }
+            }
+
+            type $TlsType = $crate::EnumerableTls<$Data, [<$TlsType FreeIdsProvider>], [<$TlsType TlsProvider>]>;
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{
-        cell::RefCell,
-        sync::{Arc, Mutex},
-    };
-
     use static_assertions::assert_impl_all;
-
-    use crate::{
-        free_ids::FreeIds,
-        global::GlobalProvider,
-        lazy_blocks_vec::LazyBlocksVec,
-        tls::{EnumerableTls, TlsRegistry},
-    };
-
-    type Data = ();
-
-    thread_local! {
-        static TLS_BLOCKS: RefCell<LazyBlocksVec<Arc<Data>, 32>> = const { RefCell::new(LazyBlocksVec::new()) };
-    }
-
-    struct TlsProvider;
-
-    impl GlobalProvider<TlsRegistry<Data>> for TlsProvider {
-        fn global() -> &'static TlsRegistry<Data> {
-            &TLS_BLOCKS
-        }
-    }
-
-    static FREE_IDS: Mutex<FreeIds> = Mutex::new(FreeIds::new());
-
-    struct FreeIdsProvider;
-
-    impl GlobalProvider<Mutex<FreeIds>> for FreeIdsProvider {
-        fn global() -> &'static Mutex<FreeIds> {
-            &FREE_IDS
-        }
-    }
-
-    type MyEnumerableTls = EnumerableTls<Data, FreeIdsProvider, TlsProvider>;
+    declare_enumerable_tls!(MyEnumerableTls, ());
 
     assert_impl_all!(MyEnumerableTls: Send, Sync);
 
