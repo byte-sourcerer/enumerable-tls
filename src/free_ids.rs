@@ -1,10 +1,10 @@
-use std::{collections::LinkedList, marker::PhantomData};
+use std::{collections::LinkedList, marker::PhantomData, sync::Mutex};
 
 use crate::global::GlobalProvider;
 
-pub struct RecycledTLSId<P: GlobalProvider<FreeIds>>(TLSId, PhantomData<P>);
+pub struct RecycledTLSId<P: GlobalProvider<Mutex<FreeIds>>>(TLSId, PhantomData<P>);
 
-impl<P: GlobalProvider<FreeIds>> RecycledTLSId<P> {
+impl<P: GlobalProvider<Mutex<FreeIds>>> RecycledTLSId<P> {
     pub fn allocate() -> Self {
         P::global().lock().unwrap().create()
     }
@@ -15,7 +15,7 @@ impl<P: GlobalProvider<FreeIds>> RecycledTLSId<P> {
     }
 }
 
-impl<P: GlobalProvider<FreeIds>> Drop for RecycledTLSId<P> {
+impl<P: GlobalProvider<Mutex<FreeIds>>> Drop for RecycledTLSId<P> {
     fn drop(&mut self) {
         P::global().lock().unwrap().recycle(self.0);
     }
@@ -35,15 +35,21 @@ pub struct FreeIds {
     id: TLSId,
 }
 
+impl Default for FreeIds {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FreeIds {
-    const fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             free_ids: LinkedList::new(),
             id: TLSId(0),
         }
     }
 
-    fn create<P: GlobalProvider<FreeIds>>(&mut self) -> RecycledTLSId<P> {
+    fn create<P: GlobalProvider<Mutex<FreeIds>>>(&mut self) -> RecycledTLSId<P> {
         let id = if let Some(id) = self.free_ids.pop_back() {
             id
         } else {
@@ -72,7 +78,7 @@ mod tests {
 
     struct FreeIdsProvider;
 
-    impl GlobalProvider<FreeIds> for FreeIdsProvider {
+    impl GlobalProvider<Mutex<FreeIds>> for FreeIdsProvider {
         fn global() -> &'static Mutex<FreeIds> {
             &FREE_IDS
         }
