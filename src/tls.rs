@@ -50,6 +50,18 @@ impl<
 
         wrapper
     }
+
+    pub fn for_each(&self, mut f: impl FnMut(Arc<T>)) {
+        let mut wrappers_guard = self.all_tls.lock().unwrap();
+        wrappers_guard.retain(|wrapper| {
+            if let Some(strong) = wrapper.upgrade() {
+                f(strong);
+                true
+            } else {
+                false
+            }
+        });
+    }
 }
 
 #[cfg(test)]
@@ -100,5 +112,6 @@ mod tests {
     fn test() {
         let tls = MyEnumerableTls::new();
         let _data = tls.get_or_create();
+        tls.for_each(|_| {});
     }
 }
