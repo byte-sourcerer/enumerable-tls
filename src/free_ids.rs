@@ -84,25 +84,24 @@ macro_rules! declare_free_ids {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use crate::free_ids::RecycledTLSId;
 
-    use crate::{
-        free_ids::{FreeIds, RecycledTLSId},
-        global::GlobalProvider,
-    };
-
-    static FREE_IDS: Mutex<FreeIds> = Mutex::new(FreeIds::new());
-
-    struct FreeIdsProvider;
-
-    impl GlobalProvider<Mutex<FreeIds>> for FreeIdsProvider {
-        fn global() -> &'static Mutex<FreeIds> {
-            &FREE_IDS
-        }
-    }
+    declare_free_ids!(My);
 
     #[test]
     fn test() {
-        let _id = RecycledTLSId::<FreeIdsProvider>::allocate();
+        let id1 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        assert_eq!(id1.inner(), 1);
+
+        let id2 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        assert_eq!(id2.inner(), 2);
+
+        let id3 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        assert_eq!(id3.inner(), 3);
+
+        drop(id2);
+
+        let id2 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        assert_eq!(id2.inner(), 2);
     }
 }
