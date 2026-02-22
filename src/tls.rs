@@ -79,7 +79,7 @@ impl<
 #[macro_export]
 macro_rules! declare_enumerable_tls {
     ($TlsType:ident, $Data:ty) => {
-        paste::paste! {
+        $crate::paste::paste! {
             thread_local! {
                 static [<$TlsType:snake:upper _ TLS_BLOCKS>]: ::std::cell::RefCell<
                     $crate::TlsVec<$Data>
