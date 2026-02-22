@@ -64,6 +64,24 @@ impl FreeIds {
     }
 }
 
+#[macro_export]
+macro_rules! declare_free_ids {
+    ($TlsType:ident) => {
+        $crate::paste::paste! {
+            static [<$TlsType:snake:upper _ FREE_IDS>]: ::std::sync::Mutex<$crate::free_ids::FreeIds> =
+                ::std::sync::Mutex::new($crate::free_ids::FreeIds::new());
+
+            struct [<$TlsType FreeIdsProvider>];
+
+            impl $crate::GlobalProvider<::std::sync::Mutex<$crate::FreeIds>> for [<$TlsType FreeIdsProvider>] {
+                fn global() -> &'static ::std::sync::Mutex<$crate::free_ids::FreeIds> {
+                    &[<$TlsType:snake:upper _ FREE_IDS>]
+                }
+            }
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
