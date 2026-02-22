@@ -52,7 +52,7 @@ impl<
 
     pub fn get_or_create(&self) -> Arc<T> {
         let wrapper = TlsProvider::global()
-            .with_borrow_mut(|blocks| blocks.get_or_create_default(&self.tls_id.inner()));
+            .with_borrow_mut(|blocks| blocks.get_or_create_default(self.tls_id.inner()).clone());
 
         {
             let mut guard = self.all_tls.lock().unwrap();
@@ -94,16 +94,7 @@ macro_rules! declare_enumerable_tls {
                 }
             }
 
-            static [<$TlsType:snake:upper _ FREE_IDS>]: ::std::sync::Mutex<$crate::free_ids::FreeIds> =
-                ::std::sync::Mutex::new($crate::free_ids::FreeIds::new());
-
-            struct [<$TlsType FreeIdsProvider>];
-
-            impl $crate::GlobalProvider<::std::sync::Mutex<$crate::FreeIds>> for [<$TlsType FreeIdsProvider>] {
-                fn global() -> &'static ::std::sync::Mutex<$crate::free_ids::FreeIds> {
-                    &[<$TlsType:snake:upper _ FREE_IDS>]
-                }
-            }
+            $crate::declare_free_ids!($TlsType);
 
             type $TlsType = $crate::EnumerableTls<$Data, [<$TlsType FreeIdsProvider>], [<$TlsType TlsProvider>]>;
         }
@@ -112,15 +103,52 @@ macro_rules! declare_enumerable_tls {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        sync::atomic::{AtomicI32, Ordering},
+        thread::{self, sleep},
+        time::Duration,
+    };
+
     use static_assertions::assert_impl_all;
-    declare_enumerable_tls!(MyEnumerableTls, ());
+
+    declare_enumerable_tls!(MyEnumerableTls, AtomicI32);
 
     assert_impl_all!(MyEnumerableTls: Send, Sync);
 
     #[test]
     fn test() {
         let tls = MyEnumerableTls::new();
-        let _data = tls.get_or_create();
-        tls.for_each(|_| {});
+
+        let sum_data = || {
+            let mut sum = 0;
+            tls.for_each(|data| {
+                sum += data.load(Ordering::SeqCst);
+            });
+            sum
+        };
+
+        {
+            let data = tls.get_or_create();
+            assert_eq!(data.load(Ordering::SeqCst), 0);
+            data.fetch_add(1, Ordering::SeqCst);
+            assert_eq!(sum_data(), 1);
+        }
+
+        thread::scope(|s| {
+            thread::Builder::new()
+                .name("another thread".to_string())
+                .spawn_scoped(s, || {
+                    let data = tls.get_or_create();
+                    assert_eq!(data.load(Ordering::SeqCst), 0);
+                    data.fetch_add(2, Ordering::SeqCst);
+
+                    assert_eq!(sum_data(), 3);
+                })
+                .unwrap();
+        });
+
+        // see: https://github.com/rust-lang/rust/issues/116237
+        sleep(Duration::from_millis(20));
+        assert_eq!(sum_data(), 1);
     }
 }

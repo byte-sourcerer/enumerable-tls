@@ -52,8 +52,9 @@ impl FreeIds {
         let id = if let Some(id) = self.free_ids.pop_back() {
             id
         } else {
+            let id = self.id;
             self.id = self.id.increment();
-            self.id
+            id
         };
 
         RecycledTLSId(id, PhantomData)
@@ -64,27 +65,46 @@ impl FreeIds {
     }
 }
 
+#[macro_export]
+macro_rules! declare_free_ids {
+    ($TlsType:ident) => {
+        $crate::paste::paste! {
+            static [<$TlsType:snake:upper _ FREE_IDS>]: ::std::sync::Mutex<$crate::free_ids::FreeIds> =
+                ::std::sync::Mutex::new($crate::free_ids::FreeIds::new());
+
+            struct [<$TlsType FreeIdsProvider>];
+
+            impl $crate::GlobalProvider<::std::sync::Mutex<$crate::FreeIds>> for [<$TlsType FreeIdsProvider>] {
+                fn global() -> &'static ::std::sync::Mutex<$crate::free_ids::FreeIds> {
+                    &[<$TlsType:snake:upper _ FREE_IDS>]
+                }
+            }
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
+    use crate::free_ids::RecycledTLSId;
 
-    use crate::{
-        free_ids::{FreeIds, RecycledTLSId},
-        global::GlobalProvider,
-    };
-
-    static FREE_IDS: Mutex<FreeIds> = Mutex::new(FreeIds::new());
-
-    struct FreeIdsProvider;
-
-    impl GlobalProvider<Mutex<FreeIds>> for FreeIdsProvider {
-        fn global() -> &'static Mutex<FreeIds> {
-            &FREE_IDS
-        }
-    }
+    declare_free_ids!(My);
 
     #[test]
     fn test() {
-        let _id = RecycledTLSId::<FreeIdsProvider>::allocate();
+        type MyRecycledTLSId = RecycledTLSId<MyFreeIdsProvider>;
+
+        let id0 = MyRecycledTLSId::allocate();
+        assert_eq!(id0.inner(), 0);
+
+        let id1 = MyRecycledTLSId::allocate();
+        assert_eq!(id1.inner(), 1);
+
+        let id2 = MyRecycledTLSId::allocate();
+        assert_eq!(id2.inner(), 2);
+
+        drop(id1);
+
+        let id1 = MyRecycledTLSId::allocate();
+        assert_eq!(id1.inner(), 1);
     }
 }
