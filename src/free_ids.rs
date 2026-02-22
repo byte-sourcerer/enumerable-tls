@@ -52,8 +52,9 @@ impl FreeIds {
         let id = if let Some(id) = self.free_ids.pop_back() {
             id
         } else {
+            let id = self.id;
             self.id = self.id.increment();
-            self.id
+            id
         };
 
         RecycledTLSId(id, PhantomData)
@@ -90,18 +91,18 @@ mod tests {
 
     #[test]
     fn test() {
+        let id0 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        assert_eq!(id0.inner(), 0);
+
         let id1 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
         assert_eq!(id1.inner(), 1);
 
         let id2 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
         assert_eq!(id2.inner(), 2);
 
-        let id3 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
-        assert_eq!(id3.inner(), 3);
+        drop(id1);
 
-        drop(id2);
-
-        let id2 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
-        assert_eq!(id2.inner(), 2);
+        let id1 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        assert_eq!(id1.inner(), 1);
     }
 }
