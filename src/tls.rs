@@ -52,7 +52,7 @@ impl<
 
     pub fn get_or_create(&self) -> Arc<T> {
         let wrapper = TlsProvider::global()
-            .with_borrow_mut(|blocks| blocks.get_or_create_default(&self.tls_id.inner()));
+            .with_borrow_mut(|blocks| blocks.get_or_create_default(self.tls_id.inner()).clone());
 
         {
             let mut guard = self.all_tls.lock().unwrap();
