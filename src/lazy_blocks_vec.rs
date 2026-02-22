@@ -14,9 +14,8 @@ impl<T, const ELEMENTS_PER_BLOCK: usize> LazyBlocksVec<T, ELEMENTS_PER_BLOCK> {
     }
 }
 
-// todo: allow non-default construction
-impl<T: Default, const ELEMENTS_PER_BLOCK: usize> LazyBlocksVec<T, ELEMENTS_PER_BLOCK> {
-    pub fn get_or_create_default(&mut self, index: usize) -> &mut T {
+impl<T, const ELEMENTS_PER_BLOCK: usize> LazyBlocksVec<T, ELEMENTS_PER_BLOCK> {
+    pub fn get_mut(&mut self, index: usize) -> &mut Option<T> {
         let block_index = index / ELEMENTS_PER_BLOCK;
         let blocks_len = self.blocks.len();
 
@@ -27,7 +26,7 @@ impl<T: Default, const ELEMENTS_PER_BLOCK: usize> LazyBlocksVec<T, ELEMENTS_PER_
         }
 
         let block = self.blocks[block_index].get_or_insert_default();
-        block.data[index - block_index * ELEMENTS_PER_BLOCK].get_or_insert_default()
+        &mut block.data[index - block_index * ELEMENTS_PER_BLOCK]
     }
 }
 
@@ -53,11 +52,11 @@ mod tests {
         let mut vec = LazyBlocksVec::<i32, 8>::default();
 
         {
-            let elem = vec.get_or_create_default(1);
-            *elem = 1;
+            let elem = vec.get_mut(1);
+            *elem = Some(1);
         }
         assert_eq!(vec.blocks.len(), 32);
-        assert_eq!(vec.get_or_create_default(1), &1);
-        assert_eq!(vec.get_or_create_default(2), &0);
+        assert_eq!(vec.get_mut(1), &Some(1));
+        assert_eq!(vec.get_mut(2), &None);
     }
 }
