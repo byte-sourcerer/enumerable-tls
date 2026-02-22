@@ -73,7 +73,7 @@ impl<
         self.modify(|wrapper| wrapper.clone())
     }
 
-    pub fn modify<U>(&self, mut f: impl FnMut(&Arc<T>) -> U) -> U {
+    pub fn modify<U>(&self, f: impl FnOnce(&Arc<T>) -> U) -> U {
         TlsProvider::global().with_borrow_mut(|blocks| {
             let wrapper = blocks.get_mut(self.tls_id.inner());
             let register = wrapper.is_none();
