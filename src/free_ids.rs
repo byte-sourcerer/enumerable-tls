@@ -91,18 +91,20 @@ mod tests {
 
     #[test]
     fn test() {
-        let id0 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        type MyRecycledTLSId = RecycledTLSId<MyFreeIdsProvider>;
+
+        let id0 = MyRecycledTLSId::allocate();
         assert_eq!(id0.inner(), 0);
 
-        let id1 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        let id1 = MyRecycledTLSId::allocate();
         assert_eq!(id1.inner(), 1);
 
-        let id2 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        let id2 = MyRecycledTLSId::allocate();
         assert_eq!(id2.inner(), 2);
 
         drop(id1);
 
-        let id1 = RecycledTLSId::<MyFreeIdsProvider>::allocate();
+        let id1 = MyRecycledTLSId::allocate();
         assert_eq!(id1.inner(), 1);
     }
 }
