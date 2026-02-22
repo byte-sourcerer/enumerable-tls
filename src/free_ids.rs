@@ -9,7 +9,6 @@ impl<P: GlobalProvider<Mutex<FreeIds>>> RecycledTLSId<P> {
         P::global().lock().unwrap().create()
     }
 
-    // todo: remove this method
     pub fn inner(&self) -> usize {
         self.0.0
     }
