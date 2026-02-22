@@ -46,6 +46,18 @@ impl<T, const ELEMENTS_PER_BLOCK: usize> Default for LazyBlock<T, ELEMENTS_PER_B
 
 #[cfg(test)]
 mod tests {
+    use crate::LazyBlocksVec;
+
     #[test]
-    fn test() {}
+    fn test() {
+        let mut vec = LazyBlocksVec::<i32, 8>::default();
+
+        {
+            let elem = vec.get_or_create_default(1);
+            *elem = 1;
+        }
+        assert_eq!(vec.blocks.len(), 32);
+        assert_eq!(vec.get_or_create_default(1), &1);
+        assert_eq!(vec.get_or_create_default(2), &0);
+    }
 }
