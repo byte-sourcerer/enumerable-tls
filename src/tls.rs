@@ -16,7 +16,7 @@ pub type TlsVec<T> = LazyBlocksVec<Arc<T>, 32>;
 pub type TlsRegistry<T> = LocalKey<RefCell<TlsVec<T>>>;
 
 pub struct EnumerableTls<
-    T: Default + 'static,
+    T: 'static,
     IdProvider: GlobalProvider<Mutex<FreeIds>>,
     TlsProvider: GlobalProvider<TlsRegistry<T>>,
 > {
@@ -26,7 +26,7 @@ pub struct EnumerableTls<
 }
 
 impl<
-    T: Default + 'static,
+    T: 'static,
     IdProvider: GlobalProvider<Mutex<FreeIds>>,
     TlsProvider: GlobalProvider<TlsRegistry<T>>,
 > Default for EnumerableTls<T, IdProvider, TlsProvider>
@@ -37,7 +37,7 @@ impl<
 }
 
 impl<
-    T: Default + 'static,
+    T: 'static,
     IdProvider: GlobalProvider<Mutex<FreeIds>>,
     TlsProvider: GlobalProvider<TlsRegistry<T>>,
 > EnumerableTls<T, IdProvider, TlsProvider>
@@ -50,19 +50,6 @@ impl<
         }
     }
 
-    pub fn get_or_create(&self) -> Arc<T> {
-        let wrapper = TlsProvider::global()
-            .with_borrow_mut(|blocks| blocks.get_or_create_default(self.tls_id.inner()).clone());
-
-        {
-            let mut guard = self.all_tls.lock().unwrap();
-            guard.push(Arc::downgrade(&wrapper));
-            guard.retain(|wrapper| wrapper.upgrade().is_some());
-        }
-
-        wrapper
-    }
-
     pub fn for_each(&self, mut f: impl FnMut(Arc<T>)) {
         let mut wrappers_guard = self.all_tls.lock().unwrap();
         wrappers_guard.retain(|wrapper| {
@@ -73,6 +60,33 @@ impl<
                 false
             }
         });
+    }
+}
+
+impl<
+    T: Default + 'static,
+    IdProvider: GlobalProvider<Mutex<FreeIds>>,
+    TlsProvider: GlobalProvider<TlsRegistry<T>>,
+> EnumerableTls<T, IdProvider, TlsProvider>
+{
+    pub fn get_or_create(&self) -> Arc<T> {
+        self.modify(|wrapper| wrapper.clone())
+    }
+
+    pub fn modify<U>(&self, mut f: impl FnMut(&Arc<T>) -> U) -> U {
+        TlsProvider::global().with_borrow_mut(|blocks| {
+            let wrapper = blocks.get_mut(self.tls_id.inner());
+            let register = wrapper.is_none();
+            let wrapper = wrapper.get_or_insert_default();
+
+            if register {
+                let mut guard = self.all_tls.lock().unwrap();
+                guard.push(Arc::downgrade(wrapper));
+                guard.retain(|wrapper| wrapper.upgrade().is_some());
+            }
+
+            f(wrapper)
+        })
     }
 }
 
@@ -111,13 +125,13 @@ mod tests {
 
     use static_assertions::assert_impl_all;
 
-    declare_enumerable_tls!(MyEnumerableTls, AtomicI32);
-
-    assert_impl_all!(MyEnumerableTls: Send, Sync);
-
     #[test]
     fn test() {
-        let tls = MyEnumerableTls::new();
+        declare_enumerable_tls!(TestEnumerableTls, AtomicI32);
+
+        assert_impl_all!(TestEnumerableTls: Send, Sync);
+
+        let tls = TestEnumerableTls::new();
 
         let sum_data = || {
             let mut sum = 0;
@@ -150,5 +164,25 @@ mod tests {
         // see: https://github.com/rust-lang/rust/issues/116237
         sleep(Duration::from_millis(20));
         assert_eq!(sum_data(), 1);
+    }
+
+    #[test]
+    fn get_twice() {
+        declare_enumerable_tls!(GetTwiceEnumerableTls, AtomicI32);
+
+        let tls = GetTwiceEnumerableTls::new();
+
+        let data0 = tls.get_or_create();
+        data0.fetch_add(1, Ordering::SeqCst);
+
+        let data1 = tls.get_or_create();
+        data1.fetch_add(1, Ordering::SeqCst);
+
+        let mut sum = 0;
+        tls.for_each(|data| {
+            sum += data.load(Ordering::SeqCst);
+        });
+
+        assert_eq!(sum, 2);
     }
 }
