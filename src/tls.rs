@@ -70,19 +70,23 @@ impl<
 > EnumerableTls<T, IdProvider, TlsProvider>
 {
     pub fn get_or_create(&self) -> Arc<T> {
-        let (register, wrapper) = TlsProvider::global().with_borrow_mut(|blocks| {
+        self.modify(|wrapper| wrapper.clone())
+    }
+
+    pub fn modify<U>(&self, mut f: impl FnMut(&Arc<T>) -> U) -> U {
+        TlsProvider::global().with_borrow_mut(|blocks| {
             let wrapper = blocks.get_mut(self.tls_id.inner());
             let register = wrapper.is_none();
-            (register, wrapper.get_or_insert_default().clone())
-        });
+            let wrapper = wrapper.get_or_insert_default();
 
-        if register {
-            let mut guard = self.all_tls.lock().unwrap();
-            guard.push(Arc::downgrade(&wrapper));
-            guard.retain(|wrapper| wrapper.upgrade().is_some());
-        }
+            if register {
+                let mut guard = self.all_tls.lock().unwrap();
+                guard.push(Arc::downgrade(wrapper));
+                guard.retain(|wrapper| wrapper.upgrade().is_some());
+            }
 
-        wrapper
+            f(wrapper)
+        })
     }
 }
 
